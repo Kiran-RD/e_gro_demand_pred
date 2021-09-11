@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 # See https://matplotlib.org/3.3.2/faq/howto_faq.html#working-with-threads.
 import matplotlib as mpl
 mpl.use("agg")
-import mysql.connector # For data base connection
+# import mysql.connector # For data base connection
 
 from statsmodels.tsa.api import VAR
 from statsmodels.tsa.stattools import adfuller
