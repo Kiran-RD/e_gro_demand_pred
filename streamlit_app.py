@@ -308,7 +308,7 @@ def invert_transformation(df_train, df_forecast, second_diff=False):
 
 
 # %%
-max_lag = st.sidebar.slider('Maximum Lags', 0, 15, 7)
+max_lag = st.sidebar.slider('Maximum Lags', 0, 20, 7)
 nobs = st.sidebar.slider('Prediction Duration', 1, 48, 12)
 df = categorized_data[select_category][select_subcategory].resample('M').mean()
 # df = categorized_data.Fruits.Apple.sum(axis=1,level='items')
