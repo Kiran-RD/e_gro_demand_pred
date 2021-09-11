@@ -209,7 +209,7 @@ select_item = st.sidebar.selectbox('Select Item', items_list)
 #     select_subcategory = st.sidebar.selectbox('Select SubCategory', sub_categories)
 
 # %%
-import plotly.figure_factory as ff
+# import plotly.figure_factory as ff
 
 st.write(select_category + " Sales:")
 st.area_chart(high_level_data[select_category].resample('M').mean())
