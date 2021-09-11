@@ -9,13 +9,11 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 mpl.use("agg")
 # import mysql.connector # For data base connection
-
 from statsmodels.tsa.api import VAR
 from statsmodels.tsa.stattools import adfuller
 
 import math
 from sklearn.metrics import mean_squared_error
-
 
 ##############################################################################
 # Workaround for the limited multi-threading support in matplotlib.
@@ -26,6 +24,10 @@ from sklearn.metrics import mean_squared_error
 ##############################################################################
 from matplotlib.backends.backend_agg import RendererAgg
 _lock = RendererAgg.lock
+
+# Not to be used in main branch
+import seaborn as sns
+# import plotly.figure_factory as ff
 
 
 # %%
@@ -209,7 +211,6 @@ select_item = st.sidebar.selectbox('Select Item', items_list)
 #     select_subcategory = st.sidebar.selectbox('Select SubCategory', sub_categories)
 
 # %%
-# import plotly.figure_factory as ff
 
 st.write(select_category + " Sales:")
 st.area_chart(high_level_data[select_category].resample('M').mean())
