@@ -308,8 +308,8 @@ def invert_transformation(df_train, df_forecast, second_diff=False):
 
 
 # %%
-nobs = 36
-max_lag = 6
+max_lag = st.sidebar.slider('Time Range (seconds)', 0, 15, 7)
+nobs = st.sidebar.slider('Time Range (seconds)', 1, 48, 12)
 df = categorized_data[select_category][select_subcategory].resample('M').mean()
 # df = categorized_data.Fruits.Apple.sum(axis=1,level='items')
 df_forecast, results = VAR_model(df,max_lag,nobs)
