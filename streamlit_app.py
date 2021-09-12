@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 mpl.use("agg")
 # import mysql.connector # For data base connection
-from statsmodels.tsa.api import VAR
-from statsmodels.tsa.stattools import adfuller
+# from statsmodels.tsa.api import VAR
+# from statsmodels.tsa.stattools import adfuller
 
 import math
 from sklearn.metrics import mean_squared_error
@@ -27,6 +27,9 @@ _lock = RendererAgg.lock
 
 # Not to be used in main branch
 import seaborn as sns
+from keras.models import Sequential
+from keras.callbacks import EarlyStopping
+from keras.layers import Dense,LSTM,GRU
 # import plotly.figure_factory as ff
 
 
