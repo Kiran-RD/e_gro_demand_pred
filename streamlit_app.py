@@ -3,6 +3,8 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+# import plotly.figure_factory as ff
+
 # Use the non-interactive Agg backend, which is recommended as a
 # thread-safe backend.
 # See https://matplotlib.org/3.3.2/faq/howto_faq.html#working-with-threads.
@@ -42,11 +44,10 @@ st.title('Demand Prediction')
 
 # %%
 @st.cache
-def get_data_from_database():
+def get_data_and_preprocess():
     data = pd.read_csv('Customer_Data_unsorted1.csv')
     data_preprocessed = data[['order_date','basket']]
     data_preprocessed.order_date = pd.to_datetime(data_preprocessed.order_date)
-    return data, data_preprocessed
 
     # connection = mysql.connector.connect(host='localhost',
     #                                     database='e_gro',
@@ -65,18 +66,6 @@ def get_data_from_database():
     # data_preprocessed.order_date = pd.to_datetime(data_preprocessed.order_date)
     # return data, data_preprocessed
 
-with st.spinner('Loading Data...'):
-    data, data_preprocessed = get_data_from_database()
-
-# st.write("Sample Data:")
-# st.write(data.head())
-
-# st.write("Data getting Preprocessed:")
-# st.write(data_preprocessed.head())
-
-# %%
-@st.cache
-def preprocess(data_preprocessed):
     def get_quant(quant):
         if 'kg' in quant.lower() or 'pc' in quant.lower():
             num = float(quant[:-2])
@@ -119,111 +108,93 @@ def preprocess(data_preprocessed):
     items.sort_values('order_date',inplace=True)
     items = items.groupby('order_date').sum()
 
-    return items
+    cat_lst = []
+    for i in items.columns:
+        # Fruits
+        if 'sapota' in i:
+            cat_lst.append(('Fruits','Sapota',i))
+        elif 'custardapple' in i:
+            cat_lst.append(('Fruits','Custardapple',i))
+        elif 'apple' in i:
+            cat_lst.append(('Fruits','Apple',i))
+        elif 'pomogranate' in i or 'pomograntes' in i or 'pomegranetes' in i:
+            cat_lst.append(('Fruits','Pomogranate',i))
+        elif 'banana' in i:
+            cat_lst.append(('Fruits','Banana',i))
+        elif 'papaya' in i:
+            cat_lst.append(('Fruits','Papaya',i))
+        elif 'melon' in i:
+            cat_lst.append(('Fruits','Melon',i))
+        elif 'mango' in i:
+            cat_lst.append(('Fruits','Mango',i))
 
-with st.spinner('Preprocessing Data...'):
-    items = preprocess(data_preprocessed)
+        # Vegetables
+        elif 'carrot' in i or 'gaajar' in i:
+            cat_lst.append(('Veges','Carrot',i))
+        elif 'onion' in i:
+            cat_lst.append(('Veges','Onion',i))
+        elif 'tomato' in i:
+            cat_lst.append(('Veges','Tomato',i))
+        elif 'chilli' in i:
+            cat_lst.append(('Veges','Chilli',i))
+        elif 'capsicum' in i:
+            cat_lst.append(('Veges','Capsicum',i))
+        elif 'brocoli' in i:
+            cat_lst.append(('Veges','Brocoli',i))
+        elif 'pepper' in i:
+            cat_lst.append(('Veges','Pepper',i))
 
-# st.write("Preprocessed Data:")
-# st.write(items.head())
+        # Milk
+        elif 'milk' in i :
+            cat_lst.append(('Milk','Milk',i))
+        
+        # Rice
+        elif 'basmati' in i:
+            cat_lst.append(('Rice','Basmati',i))
+        elif 'brown' in i:
+            cat_lst.append(('Rice','Brown',i))
+        elif 'sonamasuri' in i:
+            cat_lst.append(('Rice','Sonamasuri',i))
+        elif 'organictattva' in i or 'daawat' in i:
+            cat_lst.append(('Rice','Others',i))
+        else:
+            cat_lst.append((i,i,i))
 
-# %%
-cat_lst = []
-for i in items.columns:
-    # Fruits
-    if 'sapota' in i:
-        cat_lst.append(('Fruits','Sapota',i))
-    elif 'custardapple' in i:
-        cat_lst.append(('Fruits','Custardapple',i))
-    elif 'apple' in i:
-        cat_lst.append(('Fruits','Apple',i))
-    elif 'pomogranate' in i or 'pomograntes' in i or 'pomegranetes' in i:
-        cat_lst.append(('Fruits','Pomogranate',i))
-    elif 'banana' in i:
-        cat_lst.append(('Fruits','Banana',i))
-    elif 'papaya' in i:
-        cat_lst.append(('Fruits','Papaya',i))
-    elif 'melon' in i:
-        cat_lst.append(('Fruits','Melon',i))
-    elif 'mango' in i:
-        cat_lst.append(('Fruits','Mango',i))
+    categorized_data = pd.DataFrame(items.values,index=items.index,columns=pd.MultiIndex.from_tuples(cat_lst,names=['category', 'subcategory','items']))
+    categorized_data.sort_index(axis=1,level=['category','subcategory','items'],inplace=True)
+    categorized_data.head()
 
-    # Vegetables
-    elif 'carrot' in i or 'gaajar' in i:
-        cat_lst.append(('Veges','Carrot',i))
-    elif 'onion' in i:
-        cat_lst.append(('Veges','Onion',i))
-    elif 'tomato' in i:
-        cat_lst.append(('Veges','Tomato',i))
-    elif 'chilli' in i:
-        cat_lst.append(('Veges','Chilli',i))
-    elif 'capsicum' in i:
-        cat_lst.append(('Veges','Capsicum',i))
-    elif 'brocoli' in i:
-        cat_lst.append(('Veges','Brocoli',i))
-    elif 'pepper' in i:
-        cat_lst.append(('Veges','Pepper',i))
+    items_data = categorized_data.sum(axis=1,level='items')
+    subsubcategory_data = categorized_data.sum(axis=1,level='subcategory')
+    subcategory_data = categorized_data.sum(axis=1,level='category')
 
-    # Milk
-    elif 'milk' in i :
-        cat_lst.append(('Milk','Milk',i))
-    
-    # Rice
-    elif 'basmati' in i:
-        cat_lst.append(('Rice','Basmati',i))
-    elif 'brown' in i:
-        cat_lst.append(('Rice','Brown',i))
-    elif 'sonamasuri' in i:
-        cat_lst.append(('Rice','Sonamasuri',i))
-    elif 'organictattva' in i or 'daawat' in i:
-        cat_lst.append(('Rice','Others',i))
-    else:
-        cat_lst.append((i,i,i))
+    return categorized_data, items_data, subsubcategory_data, subcategory_data
 
-# %%
-categorized_data = pd.DataFrame(items.values,index=items.index,columns=pd.MultiIndex.from_tuples(cat_lst,names=['cat1', 'cat2','items']))
-categorized_data.sort_index(axis=1,level=['cat1','cat2','items'],inplace=True)
-categorized_data.head()
+# convert series to supervised learning -> to be used for LSTM
+def series_to_supervised(data, n_in=1, n_out=1, dropnan=True):
+	n_vars = 1 if type(data) is list else data.shape[1]
+	df = pd.DataFrame(data)
+	cols, names = list(), list()
+	# input sequence (t-n, ... t-1)
+	for i in range(n_in, 0, -1):
+		cols.append(df.shift(i))
+		names += list(df.columns + ('_(t-%d)' % (i)))
+	# forecast sequence (t, t+1, ... t+n)
+	for i in range(0, n_out):
+		cols.append(df.shift(-i))
+		if i == 0:
+			names += list(df.columns + ('_(t)'))
+		else:
+			names += list(df.columns + ('_(t+%d)' % (i)))
+	# put it all together
+	agg = pd.concat(cols, axis=1)
+	agg.columns = names
+	# drop rows with NaN values
+	if dropnan:
+		agg.dropna(inplace=True)
+	return agg
 
-# %%
-items_data = categorized_data.sum(axis=1,level='items') # items data
-category_data = categorized_data.sum(axis=1,level='cat2') # category wise items data
-high_level_data = categorized_data.sum(axis=1,level='cat1') # for high level analysis
-
-
-# %%
-categories = sorted(list(set(categorized_data.columns.get_level_values(0))))
-st.sidebar.markdown("## Select Max Lags and Duration of Prediction")
-select_category = st.sidebar.selectbox('Select Category', categories)
-sub_categories = sorted(list(set(categorized_data[select_category].columns.get_level_values(0))))
-select_subcategory = st.sidebar.selectbox('Select SubCategory', sub_categories)
-items_list = sorted(list(set(categorized_data[select_category][select_subcategory].columns.get_level_values(0))))
-select_item = st.sidebar.selectbox('Select Item', items_list)
-
-# if select_category:
-#     sub_categories = set(categorized_data[select_category].columns.get_level_values(0))
-#     select_subcategory = st.sidebar.selectbox('Select SubCategory', sub_categories)
-# else:
-#     select_category = categories[0]
-#     sub_categories = set(categorized_data[select_category].columns.get_level_values(0))
-#     select_subcategory = st.sidebar.selectbox('Select SubCategory', sub_categories)
-
-# %%
-# import plotly.figure_factory as ff
-
-st.write(select_category + " Sales:")
-st.area_chart(high_level_data[select_category].resample('M').mean())
-
-st.write(select_subcategory + " Sales:")
-st.area_chart(category_data[select_subcategory].resample('M').mean())
-
-st.write(select_item + " Sales:")
-st.area_chart(categorized_data[select_category][select_subcategory][select_item].resample('M').mean())
-
-
-# %%
-# Function Definitions
-
+# Dickey Fuller test for stationarity
 def adf_test(ts, signif=0.05):
     dftest = adfuller(ts, autolag='AIC')
     adf = pd.Series(dftest[0:4], index=['Test Statistic','p-value','# Lags','# Observations'])
@@ -237,7 +208,7 @@ def adf_test(ts, signif=0.05):
     else:
         print(f" Series is Non-Stationary")
 
-@st.cache
+@st.cache 
 def VAR_model_testing(df,max_lags,nobs):
     df_train, df_test = df[0:-nobs], df[-nobs:]
     model = VAR(df_train)
@@ -274,6 +245,8 @@ def VAR_model_testing(df,max_lags,nobs):
 
 @st.cache
 def VAR_model(df,max_lags,nobs):
+
+
     model = VAR(df)
     results = model.fit(maxlags= max_lags, ic='aic')
     results.summary()
@@ -307,10 +280,52 @@ def invert_transformation(df_train, df_forecast, second_diff=False):
     return df_fc
 
 
+
 # %%
-max_lag = st.sidebar.slider('Maximum Lags', 0, 20, 7)
-nobs = st.sidebar.slider('Prediction Duration', 1, 48, 12)
-df = categorized_data[select_category][select_subcategory].resample('M').mean()
+with st.spinner('Loading and Processing Data...'):
+    categorized_data, items_data, subcategory_data, category_data = get_data_and_preprocess()
+
+categories = sorted(list(set(categorized_data.columns.get_level_values(0))))
+st.sidebar.markdown("## Select Max Lags and Duration of Prediction")
+select_category = st.sidebar.selectbox('Select Category', categories)
+sub_categories = sorted(list(set(categorized_data[select_category].columns.get_level_values(0))))
+select_subcategory = st.sidebar.selectbox('Select SubCategory', sub_categories)
+items_list = sorted(list(set(categorized_data[select_category][select_subcategory].columns.get_level_values(0))))
+select_item = st.sidebar.selectbox('Select Item', items_list)
+
+
+forecasting_method = ["Univarient Forecasting", "Multivarient Forecasting"]
+select_forecasting_method = st.sidebar.selectbox('Select Forecasting Method', forecasting_method)
+
+# Based on selected frequency Graphs are displayed and prediction is done
+prediction_freq_map = {'Monthly':'M', 'Weekly':'W','Daily':'D'}
+select_pred_freq = st.sidebar.selectbox('Select Prediction Frequency', prediction_freq_map.keys())
+prediction_freq = prediction_freq_map[select_pred_freq]
+
+
+# %%
+
+st.write(select_category + " Sales:")
+st.area_chart(category_data[select_category].resample(prediction_freq).mean())
+
+st.write(select_subcategory + " Sales:")
+st.area_chart(subcategory_data[select_subcategory].resample(prediction_freq).mean())
+
+st.write(select_item + " Sales:")
+st.area_chart(categorized_data[select_category][select_subcategory][select_item].resample(prediction_freq).mean())
+
+
+# %%
+if prediction_freq == 'M':
+    max_lag = st.sidebar.slider('Maximum Lags', 0, 20, 7)
+    nobs = st.sidebar.slider('Prediction Duration', 1, 48, 12)
+elif prediction_freq == 'W':
+    max_lag = st.sidebar.slider('Maximum Lags', 0, 80, 28)
+    nobs = st.sidebar.slider('Prediction Duration', 1, 192, 48)
+else:
+    max_lag = st.sidebar.slider('Maximum Lags', 0, 600, 210)
+    nobs = st.sidebar.slider('Prediction Duration', 1, 1440, 365)
+df = categorized_data[select_category][select_subcategory].resample(prediction_freq).mean()
 # df = categorized_data.Fruits.Apple.sum(axis=1,level='items')
 df_forecast, results = VAR_model(df,max_lag,nobs)
 # st.pyplot(fig, clear_figure=True)
@@ -330,5 +345,8 @@ st.area_chart(df_forecast[select_item+'_forecasted'].resample('M').mean())
 # %%
 combined_data = np.concatenate((df[select_item].values,df_results[select_item+'_forecasted'].values))
 combined_index = np.concatenate((df.index,df_results.index))
-combined_df = pd.DataFrame(combined_data,index=combined_index)
+combined_df = pd.DataFrame(combined_data,index=combined_index, columns=[select_item+' combined'])
 st.area_chart(combined_df.resample('M').mean())
+
+st.write("Forecasted Data - Tabular")
+st.write(combined_df)
