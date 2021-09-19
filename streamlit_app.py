@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # import plotly.figure_factory as ff
 
 # Use the non-interactive Agg backend, which is recommended as a
-# thread-safe backend.
+# thread-safe backend.  
 # See https://matplotlib.org/3.3.2/faq/howto_faq.html#working-with-threads.
 import matplotlib as mpl
 mpl.use("agg")
@@ -29,6 +29,8 @@ from sklearn.metrics import mean_squared_error
 from matplotlib.backends.backend_agg import RendererAgg
 _lock = RendererAgg.lock
 
+# double and triple exponential smoothing
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 # %%
 # -- Set page config
@@ -263,7 +265,6 @@ def VAR_model(df,max_lags,nobs):
 
     return df_forecast, results
 
-
 @st.cache
 def invert_transformation(df_train, df_forecast, second_diff=False):
     """Revert back the differencing to get the forecast to original scale."""
@@ -278,7 +279,6 @@ def invert_transformation(df_train, df_forecast, second_diff=False):
         # df_fc[str(col)+'_forecast'] = df_train[col].iloc[-1] + df_fc[str(col)+'_1d'].cumsum()
         df_fc[str(col)+'_forecasted'] = df_train[col].iloc[-1] + df_fc[str(col)+'_forecasted'].cumsum()
     return df_fc
-
 
 
 # %%
@@ -316,37 +316,59 @@ st.area_chart(categorized_data[select_category][select_subcategory][select_item]
 
 
 # %%
-if prediction_freq == 'M':
-    max_lag = st.sidebar.slider('Maximum Lags', 0, 20, 7)
-    nobs = st.sidebar.slider('Prediction Duration', 1, 48, 12)
-elif prediction_freq == 'W':
-    max_lag = st.sidebar.slider('Maximum Lags', 0, 80, 28)
-    nobs = st.sidebar.slider('Prediction Duration', 1, 192, 48)
+
+if select_forecasting_method == "Multivarient Forecasting":
+    if prediction_freq == 'M':
+        max_lag = st.sidebar.slider('Maximum Lags', 0, 20, 7)
+        nobs = st.sidebar.slider('Prediction Duration', 1, 48, 12)
+    elif prediction_freq == 'W':
+        max_lag = st.sidebar.slider('Maximum Lags', 0, 80, 28)
+        nobs = st.sidebar.slider('Prediction Duration', 1, 192, 48)
+    else:
+        max_lag = st.sidebar.slider('Maximum Lags', 0, 600, 210)
+        nobs = st.sidebar.slider('Prediction Duration', 1, 1440, 365)
+
+    
+    df = categorized_data[select_category][select_subcategory].resample(prediction_freq).mean()    
+    # df = categorized_data.Fruits.Apple.sum(axis=1,level='items')
+    df_forecast, results = VAR_model(df,max_lag,nobs)
+    # st.pyplot(fig, clear_figure=True)
+    # df_results = invert_transformation(df, df_forecast, second_diff=False)
+    df_results = df_forecast
+
+    st.write(select_item + " Forecasting:")
+    st.area_chart(df_forecast[select_item+'_forecasted'].resample('M').mean())
+
+    # combined_data = np.concatenate((df[select_item][0:-nobs].values,df_results[select_item+'_forecasted'].values))
+    # combined_index = np.concatenate((df[0:-nobs].index,df_results.index))
+    # combined_df = pd.DataFrame(combined_data,index=combined_index)
+    # st.area_chart(combined_df.resample('M').mean())
+
+    combined_data = np.concatenate((df[select_item].values,df_results[select_item+'_forecasted'].values))
+    combined_index = np.concatenate((df.index,df_results.index))
+    combined_df = pd.DataFrame(combined_data,index=combined_index, columns=[select_item+' combined'])
+    st.area_chart(combined_df.resample('M').mean())
+
+    st.write("Forecasted Data - Tabular")
+    st.write(combined_df)
+
 else:
-    max_lag = st.sidebar.slider('Maximum Lags', 0, 600, 210)
-    nobs = st.sidebar.slider('Prediction Duration', 1, 1440, 365)
-df = categorized_data[select_category][select_subcategory].resample(prediction_freq).mean()
-# df = categorized_data.Fruits.Apple.sum(axis=1,level='items')
-df_forecast, results = VAR_model(df,max_lag,nobs)
-# st.pyplot(fig, clear_figure=True)
-# df_results = invert_transformation(df, df_forecast, second_diff=False)
-df_results = df_forecast
+    if prediction_freq == 'M':
+        seasonality = st.sidebar.slider('Seasonality', 0, 20, 12)
+        nobs = st.sidebar.slider('Prediction Duration', 1, 48, 12)
+    elif prediction_freq == 'W':
+        seasonality = st.sidebar.slider('Maximum Lags', 0, 80, 48)
+        nobs = st.sidebar.slider('Prediction Duration', 1, 192, 48)
+    else:
+        seasonality = st.sidebar.slider('Maximum Lags', 0, 600, 365)
+        nobs = st.sidebar.slider('Prediction Duration', 1, 1440, 365)
 
 # %%
-st.write(select_item + " Forecasting:")
-st.area_chart(df_forecast[select_item+'_forecasted'].resample('M').mean())
+    df = categorized_data[select_category][select_subcategory][select_item].resample(prediction_freq).mean()
+    df_forecast = pd.DataFrame(df, index=df.index, columns = [select_item])
 
-# %%
-# combined_data = np.concatenate((df[select_item][0:-nobs].values,df_results[select_item+'_forecasted'].values))
-# combined_index = np.concatenate((df[0:-nobs].index,df_results.index))
-# combined_df = pd.DataFrame(combined_data,index=combined_index)
-# st.area_chart(combined_df.resample('M').mean())
-
-# %%
-combined_data = np.concatenate((df[select_item].values,df_results[select_item+'_forecasted'].values))
-combined_index = np.concatenate((df.index,df_results.index))
-combined_df = pd.DataFrame(combined_data,index=combined_index, columns=[select_item+' combined'])
-st.area_chart(combined_df.resample('M').mean())
-
-st.write("Forecasted Data - Tabular")
-st.write(combined_df)
+    df_forecast['HWES_additive'] = ExponentialSmoothing(df,trend='add',seasonal='add',seasonal_periods=seasonality).fit().fittedvalues
+    df_forecast['HWES_multiplicative'] = ExponentialSmoothing(df,trend='mul',seasonal='mul',seasonal_periods=seasonality).fit().fittedvalues
+    
+    st.write("Fitted Values")
+    st.line_chart(df_forecast)

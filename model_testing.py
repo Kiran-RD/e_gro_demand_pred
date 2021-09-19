@@ -283,3 +283,12 @@ print('done')
 for cfg, error in scores[:3]:
     print(cfg, error)
 # %%
+df = categorized_data['Fruits']['Apple']['galaapple'].resample('M').mean()
+df_forecast = pd.DataFrame(df, index=df.index, columns = ['galaapple'])
+
+df_forecast['HWES_additive'] = ExponentialSmoothing(df,trend='add',seasonal='add',seasonal_periods=12).fit().fittedvalues
+df_forecast['HWES_multiplicative'] = ExponentialSmoothing(df,trend='mul',seasonal='mul',seasonal_periods=12).fit().fittedvalues
+
+plt.plot(df_forecast)
+
+# %%
