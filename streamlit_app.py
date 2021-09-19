@@ -299,7 +299,6 @@ def HWES(df, p_seasonality, nobs, prediction_freq, p_trend='add', p_seasonal='ad
     return df_forecast
 
 
-
 # %%
 with st.spinner('Loading and Processing Data...'):
     categorized_data, items_data, subcategory_data, category_data = get_data_and_preprocess()
@@ -387,12 +386,12 @@ else:
     df = categorized_data[select_category][select_subcategory][select_item].resample(prediction_freq).mean()
     df_test = pd.DataFrame(df, index=df.index, columns = [select_item])+1
 
-    df_test['HWES_additive'] = ExponentialSmoothing(df+1, trend='add',seasonal='add',seasonal_periods=seasonality).fit().fittedvalues
-    df_test['HWES_multiplicative'] = ExponentialSmoothing(df+1 ,trend='mul',seasonal='mul',seasonal_periods=seasonality).fit().fittedvalues
-    
-    
-    st.write("Fitted Values")
-    st.line_chart(df_test)
+    if prediction_freq != 'D':
+        df_test['HWES_additive'] = ExponentialSmoothing(df+1, trend='add',seasonal='add',seasonal_periods=seasonality).fit().fittedvalues
+        df_test['HWES_multiplicative'] = ExponentialSmoothing(df+1 ,trend='mul',seasonal='mul',seasonal_periods=seasonality).fit().fittedvalues
+        
+        st.write("Fitted Values")
+        st.line_chart(df_test)
 
     df_forecast = HWES(df, seasonality, nobs, prediction_freq)
 
