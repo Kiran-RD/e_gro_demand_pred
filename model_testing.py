@@ -283,12 +283,26 @@ print('done')
 for cfg, error in scores[:3]:
     print(cfg, error)
 # %%
-df = categorized_data['Fruits']['Apple']['galaapple'].resample('M').mean()
+df = categorized_data['Fruits']['Apple']['galaapple']
 df_forecast = pd.DataFrame(df, index=df.index, columns = ['galaapple'])
 
-df_forecast['HWES_additive'] = ExponentialSmoothing(df,trend='add',seasonal='add',seasonal_periods=12).fit().fittedvalues
-df_forecast['HWES_multiplicative'] = ExponentialSmoothing(df,trend='mul',seasonal='mul',seasonal_periods=12).fit().fittedvalues
+df_forecast['HWES_additive'] = ExponentialSmoothing(df+1,trend='add',seasonal='add',seasonal_periods=365).fit().fittedvalues
+df_forecast['HWES_multiplicative'] = ExponentialSmoothing(df+1,trend='mul',seasonal='mul',seasonal_periods=365).fit().fittedvalues
 
 plt.plot(df_forecast)
 
+# %%
+def HWES(df, p_seasonality, nobs, prediction_freq, p_trend='add', p_seasonal='add'):
+    model = ExponentialSmoothing(df, trend=p_trend, seasonal=p_seasonal, seasonal_periods = p_seasonality)
+    fitted_model = model.fit()
+    y_hat = fitted_model.forecast(steps=nobs)
+    
+    idx = pd.date_range(df.index[-1] + pd.Timedelta(1,'D'), periods=nobs, freq=prediction_freq)
+    df_forecast = pd.DataFrame(y_hat, index=idx, columns=['galaapple'+'_forecasted'])
+
+    return df_forecast
+
+
+# %%
+df_forecast = HWES(df, 365, 365, 'D')
 # %%

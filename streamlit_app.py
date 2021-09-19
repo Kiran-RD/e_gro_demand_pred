@@ -246,9 +246,13 @@ def VAR_model_testing(df,max_lags,nobs):
     return df_forecast, results
 
 @st.cache
-def VAR_model(df,max_lags,nobs):
+def VAR_model(df,max_lags,nobs,prediction_freq):
 
+    # if df.shape[1] == 1:
+    #     [column] = df.columns
+    #     df[column+'_multivarient'] = df[column].values + 100
 
+    df.fillna(method="ffill",inplace=True)
     model = VAR(df)
     results = model.fit(maxlags= max_lags, ic='aic')
     results.summary()
@@ -260,7 +264,7 @@ def VAR_model(df,max_lags,nobs):
     # plotting
     results.plot_forecast(nobs)
 
-    idx = pd.date_range(df.index[-1], periods=nobs, freq="M")
+    idx = pd.date_range(df.index[-1]+pd.Timedelta(1,'D'), periods=nobs, freq=prediction_freq)
     df_forecast = pd.DataFrame(predictions, index=idx, columns=df.columns+'_forecasted')
 
     return df_forecast, results
@@ -279,6 +283,21 @@ def invert_transformation(df_train, df_forecast, second_diff=False):
         # df_fc[str(col)+'_forecast'] = df_train[col].iloc[-1] + df_fc[str(col)+'_1d'].cumsum()
         df_fc[str(col)+'_forecasted'] = df_train[col].iloc[-1] + df_fc[str(col)+'_forecasted'].cumsum()
     return df_fc
+
+@st.cache
+def HWES(df, p_seasonality, nobs, prediction_freq, p_trend='add', p_seasonal='add'):
+
+    df.fillna(method="ffill",inplace=True)
+
+    model = ExponentialSmoothing(df, trend=p_trend, seasonal = p_seasonal, seasonal_periods = p_seasonality)
+    fitted_model = model.fit()
+    y_hat = fitted_model.forecast(steps=nobs)
+    
+    idx = pd.date_range(df.index[-1] + pd.Timedelta(1,'D'), periods=nobs, freq=prediction_freq)
+    df_forecast = pd.DataFrame(y_hat, index=idx, columns=[select_item+'_forecasted'])
+
+    return df_forecast
+
 
 
 # %%
@@ -331,7 +350,7 @@ if select_forecasting_method == "Multivarient Forecasting":
     
     df = categorized_data[select_category][select_subcategory].resample(prediction_freq).mean()    
     # df = categorized_data.Fruits.Apple.sum(axis=1,level='items')
-    df_forecast, results = VAR_model(df,max_lag,nobs)
+    df_forecast, results = VAR_model(df,max_lag,nobs,prediction_freq)
     # st.pyplot(fig, clear_figure=True)
     # df_results = invert_transformation(df, df_forecast, second_diff=False)
     df_results = df_forecast
@@ -344,31 +363,48 @@ if select_forecasting_method == "Multivarient Forecasting":
     # combined_df = pd.DataFrame(combined_data,index=combined_index)
     # st.area_chart(combined_df.resample('M').mean())
 
+    st.write(select_item + " Data and Forecast combined:")
     combined_data = np.concatenate((df[select_item].values,df_results[select_item+'_forecasted'].values))
     combined_index = np.concatenate((df.index,df_results.index))
     combined_df = pd.DataFrame(combined_data,index=combined_index, columns=[select_item+' combined'])
     st.area_chart(combined_df.resample('M').mean())
 
     st.write("Forecasted Data - Tabular")
-    st.write(combined_df)
+    st.write(df_results)
 
 else:
     if prediction_freq == 'M':
         seasonality = st.sidebar.slider('Seasonality', 0, 20, 12)
         nobs = st.sidebar.slider('Prediction Duration', 1, 48, 12)
     elif prediction_freq == 'W':
-        seasonality = st.sidebar.slider('Maximum Lags', 0, 80, 48)
+        seasonality = st.sidebar.slider('Seasonality', 0, 80, 48)
         nobs = st.sidebar.slider('Prediction Duration', 1, 192, 48)
     else:
-        seasonality = st.sidebar.slider('Maximum Lags', 0, 600, 365)
+        seasonality = st.sidebar.slider('Seasonality', 0, 600, 365)
         nobs = st.sidebar.slider('Prediction Duration', 1, 1440, 365)
 
 # %%
     df = categorized_data[select_category][select_subcategory][select_item].resample(prediction_freq).mean()
-    df_forecast = pd.DataFrame(df, index=df.index, columns = [select_item])
+    df_test = pd.DataFrame(df, index=df.index, columns = [select_item])+1
 
-    df_forecast['HWES_additive'] = ExponentialSmoothing(df,trend='add',seasonal='add',seasonal_periods=seasonality).fit().fittedvalues
-    df_forecast['HWES_multiplicative'] = ExponentialSmoothing(df,trend='mul',seasonal='mul',seasonal_periods=seasonality).fit().fittedvalues
+    df_test['HWES_additive'] = ExponentialSmoothing(df+1, trend='add',seasonal='add',seasonal_periods=seasonality).fit().fittedvalues
+    df_test['HWES_multiplicative'] = ExponentialSmoothing(df+1 ,trend='mul',seasonal='mul',seasonal_periods=seasonality).fit().fittedvalues
+    
     
     st.write("Fitted Values")
-    st.line_chart(df_forecast)
+    st.line_chart(df_test)
+
+    df_forecast = HWES(df, seasonality, nobs, prediction_freq)
+
+    st.write(select_item + " Forecasting:")
+    st.area_chart(df_forecast)
+
+    st.write(select_item + " Data and Forecast combined:")
+    combined_data = np.concatenate((df.values,df_forecast[select_item+'_forecasted'].values))
+    combined_index = np.concatenate((df.index,df_forecast.index))
+    combined_df = pd.DataFrame(combined_data,index=combined_index, columns=[select_item+' combined'])
+    st.area_chart(combined_df.resample(prediction_freq).mean())
+
+    st.write("Forecasted Data - Tabular")
+    st.write(df_forecast)
+
